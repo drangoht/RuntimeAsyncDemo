@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RuntimeAsyncDemo.Benchmarks/RuntimeAsyncDemo.Benchmarks.csproj" />
+    <Project Path="src/RuntimeAsyncDemo.Demo/RuntimeAsyncDemo.Demo.csproj" />
+    <Project Path="src/RuntimeAsyncDemo.Scenarios/RuntimeAsyncDemo.Scenarios.csproj" />
+  </Folder>
+</Solution>

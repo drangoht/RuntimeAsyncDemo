@@ -1,0 +1,26 @@
+<Project>
+  <!--
+    Un seul interrupteur pour toute la solution :
+      dotnet run -c Release                        -> AsyncMode=runtime  (Runtime Async, nouveau .NET 11)
+      dotnet run -c Release -p:AsyncMode=compiler  -> AsyncMode=compiler (machine à états générée, comme avant)
+
+    Chaque mode a ses propres dossiers obj\ et bin\ (artifacts\<mode>\) : sans ça, la compilation incrémentale
+    réutiliserait la DLL de l'autre mode (l'option Features ne fait pas partie des entrées surveillées).
+  -->
+  <PropertyGroup>
+    <AsyncMode Condition="'$(AsyncMode)' == ''">runtime</AsyncMode>
+    <!-- Hors des dossiers de projets : sinon un mode compilerait les fichiers générés par l'autre -->
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)artifacts\$(AsyncMode)\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)artifacts\$(AsyncMode)\bin\$(MSBuildProjectName)\</BaseOutputPath>
+
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <!-- Le réglage officiel de .NET 11 : demande à Roslyn d'émettre des méthodes « async » natives -->
+  <PropertyGroup Condition="'$(AsyncMode)' == 'runtime'">
+    <Features>$(Features);runtime-async=on</Features>
+  </PropertyGroup>
+</Project>
