@@ -336,7 +336,77 @@ depuis .NET Core 2.1. Le gain se voit dans le débogueur, les profileurs et les 
 
 ---
 
-## 5. Lancer la solution
+## 5. Voir le C# traduit en IL et en assembleur
+
+Votre code passe par deux traductions avant de s'exécuter :
+
+```
+  C#  ──(compilateur Roslyn)──►  IL  ──(JIT, au lancement)──►  assembleur x64
+                                 (dans la DLL)                  (ce que le processeur exécute)
+```
+
+### En ligne
+
+- **[SharpLab](https://sharplab.io)** : collez du C# et choisissez la vue *C#* (le code « désucré », où la machine
+  à états `<Methode>d__N` apparaît en clair avec son `MoveNext()`), *IL* ou *JIT Asm*. C'est la meilleure vue
+  pour comprendre ce que le compilateur fait d'une méthode `async`.
+- **[Compiler Explorer](https://godbolt.org)** : plusieurs vues côte à côte et toutes les versions de .NET.
+  **[Ouvrir l'exemple pré-rempli](https://godbolt.org/clientstate/eyJzZXNzaW9ucyI6IFt7ImlkIjogMSwgImxhbmd1YWdlIjogImNzaGFycCIsICJzb3VyY2UiOiAidXNpbmcgU3lzdGVtLlJ1bnRpbWUuQ29tcGlsZXJTZXJ2aWNlcztcbnVzaW5nIFN5c3RlbS5UaHJlYWRpbmcuVGFza3M7XG5cbnB1YmxpYyBzdGF0aWMgY2xhc3MgRXhlbXBsZVxue1xuICAgIC8vIDEuIElubGluaW5nIDogcmVnYXJkZXogbCdhc3NlbWJsZXVyIGRlIENhbGN1bCwgbCdhcHBlbCDDoCBDYXJyZSBhIGRpc3BhcnVcbiAgICBwdWJsaWMgc3RhdGljIGludCBDYXJyZShpbnQgeCkgPT4geCAqIHg7XG4gICAgcHVibGljIHN0YXRpYyBpbnQgQ2FsY3VsKGludCBhKSA9PiBDYXJyZShhKSArIDE7XG5cbiAgICAvLyAyLiBNw6ptZSBjaG9zZSBhdmVjIE5vSW5saW5pbmcgOiB1biB2cmFpIMKrIGNhbGwgwrsgcmVzdGUgZGFucyBsJ2Fzc2VtYmxldXJcbiAgICBbTWV0aG9kSW1wbChNZXRob2RJbXBsT3B0aW9ucy5Ob0lubGluaW5nKV1cbiAgICBwdWJsaWMgc3RhdGljIGludCBDYXJyZU5vbklubGluZShpbnQgeCkgPT4geCAqIHg7XG4gICAgcHVibGljIHN0YXRpYyBpbnQgQ2FsY3VsU2Fuc0lubGluZShpbnQgYSkgPT4gQ2FycmVOb25JbmxpbmUoYSkgKyAxO1xuXG4gICAgLy8gMy4gQXN5bmMgOiByZWdhcmRleiBsJ0lMLCBsZSBjb21waWxhdGV1ciBhIGfDqW7DqXLDqSB1bmUgY2xhc3NlIDxDaGFyZ2VyQXN5bmM-ZF9fTiAobWFjaGluZSDDoCDDqXRhdHMpXG4gICAgcHVibGljIHN0YXRpYyBhc3luYyBUYXNrPGludD4gQ2hhcmdlckFzeW5jKGludCBpZClcbiAgICB7XG4gICAgICAgIGF3YWl0IFRhc2suWWllbGQoKTtcbiAgICAgICAgcmV0dXJuIGlkICogMjtcbiAgICB9XG59XG4iLCAiY29tcGlsZXJzIjogW3siaWQiOiAiZG90bmV0MTAwY3NoYXJwaWxkYXNtIiwgIm9wdGlvbnMiOiAiIn0sIHsiaWQiOiAiZG90bmV0MTAwY3NoYXJwY29yZWNsciIsICJvcHRpb25zIjogIiJ9XX1dfQ==)**
+  : C#, IL (ILDasm) et assembleur (CoreCLR) en .NET 10, sur ce code :
+
+  ```csharp
+  public static int Carre(int x) => x * x;
+  public static int Calcul(int a) => Carre(a) + 1;            // assembleur : pas de « call », Carre est inlinée
+
+  [MethodImpl(MethodImplOptions.NoInlining)]
+  public static int CarreNonInline(int x) => x * x;
+  public static int CalculSansInline(int a) => CarreNonInline(a) + 1;   // assembleur : un vrai « call » reste
+
+  public static async Task<int> ChargerAsync(int id)          // IL : une classe <ChargerAsync>d__N est générée
+  {
+      await Task.Yield();
+      return id * 2;
+  }
+  ```
+
+> Ces deux sites tournent en .NET 10 : on y voit la machine à états classique, pas encore Runtime Async.
+
+### En local, avec .NET 11 (pour voir Runtime Async)
+
+Le runtime sait afficher ce que son JIT produit, grâce à des variables d'environnement :
+
+```powershell
+# Compiler dans le mode voulu
+dotnet build -c Release src/RuntimeAsyncDemo.Demo -p:AsyncMode=runtime
+
+# Liste des méthodes compilées par le JIT
+$env:DOTNET_JitDisasmSummary = "1"
+dotnet artifacts\runtime\bin\RuntimeAsyncDemo.Demo\Release\net11.0\RuntimeAsyncDemo.Demo.dll
+
+# Assembleur d'une méthode précise
+$env:DOTNET_JitDisasmSummary = ""
+$env:DOTNET_JitDisasm = "LireRemiseAsync"
+dotnet artifacts\runtime\bin\RuntimeAsyncDemo.Demo\Release\net11.0\RuntimeAsyncDemo.Demo.dll
+```
+
+Ce qu'on observe pour la même méthode `LireRemiseAsync` (mesuré avec le SDK RC3) :
+
+| Mode classique : le JIT compile 4 méthodes | Runtime Async : le JIT compile 1 méthode |
+|---|---|
+| `LireRemiseAsync` (le point d'entrée, qui prépare la machine à états) | `LireRemiseAsync`, marquée `; async` dans l'assembleur |
+| `AsyncTaskMethodBuilder<Decimal>.Start<…>` | |
+| `AsyncMethodBuilderCore.Start<…>` | |
+| `<LireRemiseAsync>d__9.MoveNext()` (le vrai code) | |
+
+Autre détail parlant : en Runtime Async, le JIT voit la méthode comme renvoyant **directement un `Decimal`**, et
+non un `Task<Decimal>`. Le `Task` n'est créé que si quelqu'un en a vraiment besoin.
+
+Pour lire l'IL d'une DLL compilée en local, [ILSpy](https://github.com/icsharpcode/ILSpy) (application ou extension
+Visual Studio/VS Code) affiche aussi le C# décompilé et l'IL côte à côte.
+
+---
+
+## 6. Lancer la solution
 
 ```bash
 # Démo rapide (~30 s) : pile d'appels + mesures simples, dans les deux modes
