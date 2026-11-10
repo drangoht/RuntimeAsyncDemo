@@ -336,73 +336,205 @@ depuis .NET Core 2.1. Le gain se voit dans le débogueur, les profileurs et les 
 
 ---
 
-## 5. Voir le C# traduit en IL et en assembleur
+## 5. Ce que le compilateur fait de votre code, côte à côte
 
-Votre code passe par deux traductions avant de s'exécuter :
+Pour deux méthodes de la solution, voici ce qui se retrouve **réellement dans la DLL** dans chaque mode, réécrit en
+C# lisible. Les appels ont été relevés dans l'IL des deux builds (SDK RC3). Les noms sont raccourcis et c'est du
+pseudo-C# : le vrai code généré utilise des sauts (`goto`) qu'on ne peut pas écrire tels quels.
 
+### Exemple 1 : une attente (`LireRemiseAsync`, dans `ServiceCommandes.cs`)
+
+Ce que vous écrivez :
+
+```csharp
+private async Task<decimal> LireRemiseAsync(Client client)
+{
+    if (_simulerEntreesSorties) await Task.Yield();
+    return client.Remise;
+}
 ```
-  C#  ──(compilateur Roslyn)──►  IL  ──(JIT, au lancement)──►  assembleur x64
-                                 (dans la DLL)                  (ce que le processeur exécute)
+
+Ce que le compilateur produit :
+
+<table>
+<tr><th>Mode classique (machine à états)</th><th>Runtime Async (.NET 11)</th></tr>
+<tr><td valign="top">
+
+```csharp
+// ① La méthode ne fait plus que préparer
+//   la machine à états, puis la lancer
+Task<decimal> LireRemiseAsync(Client client)
+{
+    var m = new <LireRemiseAsync>d__9();
+    m.client = client;
+    m.etat = -1;
+    m.builder = Builder<decimal>.Create();
+    m.builder.Start(ref m); // → MoveNext()
+    return m.builder.Task;
+}
+
+// ② Votre code est déplacé ici, découpé
+//   autour de l'await
+struct <LireRemiseAsync>d__9
+{
+    void MoveNext()
+    {
+        try
+        {
+            if (etat == 0) goto Reprise;
+            if (_simulerEntreesSorties)
+            {
+                attente = Task.Yield().GetAwaiter();
+                if (!attente.IsCompleted)
+                {
+                    etat = 0;
+                    builder.AwaitUnsafeOnCompleted(
+                        ref attente, ref this);
+                    return;      // suspendue
+                }
+            Reprise:
+                attente.GetResult();
+            }
+            builder.SetResult(client.Remise);
+        }
+        catch (Exception e)
+        {
+            builder.SetException(e);
+        }
+    }
+}
 ```
 
-### En ligne
+</td><td valign="top">
 
-- **[SharpLab](https://sharplab.io)** : collez du C# et choisissez la vue *C#* (le code « désucré », où la machine
-  à états `<Methode>d__N` apparaît en clair avec son `MoveNext()`), *IL* ou *JIT Asm*. C'est la meilleure vue
-  pour comprendre ce que le compilateur fait d'une méthode `async`.
-- **[Compiler Explorer](https://godbolt.org)** : plusieurs vues côte à côte et toutes les versions de .NET.
-  **[Ouvrir l'exemple pré-rempli](https://godbolt.org/clientstate/eyJzZXNzaW9ucyI6IFt7ImlkIjogMSwgImxhbmd1YWdlIjogImNzaGFycCIsICJzb3VyY2UiOiAidXNpbmcgU3lzdGVtLlJ1bnRpbWUuQ29tcGlsZXJTZXJ2aWNlcztcbnVzaW5nIFN5c3RlbS5UaHJlYWRpbmcuVGFza3M7XG5cbnB1YmxpYyBzdGF0aWMgY2xhc3MgRXhlbXBsZVxue1xuICAgIC8vIDEuIElubGluaW5nIDogcmVnYXJkZXogbCdhc3NlbWJsZXVyIGRlIENhbGN1bCwgbCdhcHBlbCDDoCBDYXJyZSBhIGRpc3BhcnVcbiAgICBwdWJsaWMgc3RhdGljIGludCBDYXJyZShpbnQgeCkgPT4geCAqIHg7XG4gICAgcHVibGljIHN0YXRpYyBpbnQgQ2FsY3VsKGludCBhKSA9PiBDYXJyZShhKSArIDE7XG5cbiAgICAvLyAyLiBNw6ptZSBjaG9zZSBhdmVjIE5vSW5saW5pbmcgOiB1biB2cmFpIMKrIGNhbGwgwrsgcmVzdGUgZGFucyBsJ2Fzc2VtYmxldXJcbiAgICBbTWV0aG9kSW1wbChNZXRob2RJbXBsT3B0aW9ucy5Ob0lubGluaW5nKV1cbiAgICBwdWJsaWMgc3RhdGljIGludCBDYXJyZU5vbklubGluZShpbnQgeCkgPT4geCAqIHg7XG4gICAgcHVibGljIHN0YXRpYyBpbnQgQ2FsY3VsU2Fuc0lubGluZShpbnQgYSkgPT4gQ2FycmVOb25JbmxpbmUoYSkgKyAxO1xuXG4gICAgLy8gMy4gQXN5bmMgOiByZWdhcmRleiBsJ0lMLCBsZSBjb21waWxhdGV1ciBhIGfDqW7DqXLDqSB1bmUgY2xhc3NlIDxDaGFyZ2VyQXN5bmM-ZF9fTiAobWFjaGluZSDDoCDDqXRhdHMpXG4gICAgcHVibGljIHN0YXRpYyBhc3luYyBUYXNrPGludD4gQ2hhcmdlckFzeW5jKGludCBpZClcbiAgICB7XG4gICAgICAgIGF3YWl0IFRhc2suWWllbGQoKTtcbiAgICAgICAgcmV0dXJuIGlkICogMjtcbiAgICB9XG59XG4iLCAiY29tcGlsZXJzIjogW3siaWQiOiAiZG90bmV0MTAwY3NoYXJwaWxkYXNtIiwgIm9wdGlvbnMiOiAiIn0sIHsiaWQiOiAiZG90bmV0MTAwY3NoYXJwY29yZWNsciIsICJvcHRpb25zIjogIiJ9XX1dfQ==)**
-  : C#, IL (ILDasm) et assembleur (CoreCLR) en .NET 10, sur ce code :
+```csharp
+// Une seule méthode, marquée « async »
+// dans l'IL (drapeau 0x2000)
+Task<decimal> LireRemiseAsync(Client client)
+{
+    if (_simulerEntreesSorties)
+    {
+        var attente = Task.Yield().GetAwaiter();
+        if (!attente.IsCompleted)
+            AsyncHelpers.UnsafeAwaitAwaiter(attente);
+            // ↑ le runtime suspend et reprend ICI
+        attente.GetResult();
+    }
+    return client.Remise;
+    // ↑ la valeur est renvoyée directement :
+    //   pas de SetResult, pas de Task créé
+    //   si l'appelant est lui aussi async
+}
+```
 
-  ```csharp
-  public static int Carre(int x) => x * x;
-  public static int Calcul(int a) => Carre(a) + 1;            // assembleur : pas de « call », Carre est inlinée
+</td></tr>
+<tr><td>
 
-  [MethodImpl(MethodImplOptions.NoInlining)]
-  public static int CarreNonInline(int x) => x * x;
-  public static int CalculSansInline(int a) => CarreNonInline(a) + 1;   // assembleur : un vrai « call » reste
+**2 méthodes + 1 type généré · 239 octets d'IL**<br>
+Le JIT compile 4 méthodes.
 
-  public static async Task<int> ChargerAsync(int id)          // IL : une classe <ChargerAsync>d__N est générée
-  {
-      await Task.Yield();
-      return id * 2;
-  }
+</td><td>
+
+**1 méthode · 51 octets d'IL**<br>
+Le JIT compile 1 méthode.
+
+</td></tr>
+</table>
+
+### Exemple 2 : une exception (`DescendreEtEchouerAsync`, dans `ChaineAppels.cs`)
+
+Ce que vous écrivez :
+
+```csharp
+static async Task<int> DescendreEtEchouerAsync(int profondeur)
+{
+    if (profondeur == 0) throw new CommandeInvalideException("Quantité négative");
+    return await DescendreEtEchouerAsync(profondeur - 1) + 1;
+}
+```
+
+Ce que le compilateur produit (la partie « préparation » du mode classique est la même qu'à l'exemple 1) :
+
+<table>
+<tr><th>Mode classique (machine à états)</th><th>Runtime Async (.NET 11)</th></tr>
+<tr><td valign="top">
+
+```csharp
+void MoveNext()
+{
+    try
+    {
+        if (etat == 0) goto Reprise;
+        if (profondeur == 0)
+            throw new CommandeInvalideException(…);
+        attente = DescendreEtEchouerAsync(
+            profondeur - 1).GetAwaiter();
+        if (!attente.IsCompleted)
+        {
+            etat = 0;
+            builder.AwaitUnsafeOnCompleted(…);
+            return;
+        }
+    Reprise:
+        // GetResult RELANCE l'exception
+        // rangée par le niveau du dessous
+        builder.SetResult(attente.GetResult() + 1);
+    }
+    catch (Exception e)
+    {
+        // …et on la RANGE dans le Task
+        // de ce niveau
+        builder.SetException(e);
+    }
+}
+```
+
+</td><td valign="top">
+
+```csharp
+Task<int> DescendreEtEchouerAsync(int profondeur)
+{
+    if (profondeur == 0)
+        throw new CommandeInvalideException(…);
+
+    return AsyncHelpers.Await(
+        DescendreEtEchouerAsync(profondeur - 1)) + 1;
+}
+
+// Aucun try/catch généré :
+// l'exception remonte la pile une seule
+// fois, comme dans du code synchrone.
+```
+
+</td></tr>
+<tr><td>
+
+**228 octets d'IL**<br>
+À chaque niveau : attrapée, rangée, relancée.
+
+</td><td>
+
+**30 octets d'IL**<br>
+Elle remonte directement jusqu'au `catch`.
+
+</td></tr>
+</table>
+
+C'est ce qui explique les benchmarks de la section 4 : sur 20 niveaux, le mode classique attrape et relance
+l'exception 20 fois (27 µs), contre une seule remontée en Runtime Async (6 µs).
+
+### Pour aller plus loin
+
+- **En ligne** : [SharpLab](https://sharplab.io) (vue *C#* : la machine à états apparaît en clair) ou
+  [Compiler Explorer](https://godbolt.org). Ces deux sites tournent en .NET 10, donc en mode classique uniquement.
+- **En local, avec .NET 11** : le runtime liste les méthodes que son JIT compile.
+  ```powershell
+  dotnet build -c Release src/RuntimeAsyncDemo.Demo -p:AsyncMode=runtime
+  $env:DOTNET_JitDisasmSummary = "1"
+  dotnet artifacts\runtime\bin\RuntimeAsyncDemo.Demo\Release\net11.0\RuntimeAsyncDemo.Demo.dll
   ```
-
-> Ces deux sites tournent en .NET 10 : on y voit la machine à états classique, pas encore Runtime Async.
-
-### En local, avec .NET 11 (pour voir Runtime Async)
-
-Le runtime sait afficher ce que son JIT produit, grâce à des variables d'environnement :
-
-```powershell
-# Compiler dans le mode voulu
-dotnet build -c Release src/RuntimeAsyncDemo.Demo -p:AsyncMode=runtime
-
-# Liste des méthodes compilées par le JIT
-$env:DOTNET_JitDisasmSummary = "1"
-dotnet artifacts\runtime\bin\RuntimeAsyncDemo.Demo\Release\net11.0\RuntimeAsyncDemo.Demo.dll
-
-# Assembleur d'une méthode précise
-$env:DOTNET_JitDisasmSummary = ""
-$env:DOTNET_JitDisasm = "LireRemiseAsync"
-dotnet artifacts\runtime\bin\RuntimeAsyncDemo.Demo\Release\net11.0\RuntimeAsyncDemo.Demo.dll
-```
-
-Ce qu'on observe pour la même méthode `LireRemiseAsync` (mesuré avec le SDK RC3) :
-
-| Mode classique : le JIT compile 4 méthodes | Runtime Async : le JIT compile 1 méthode |
-|---|---|
-| `LireRemiseAsync` (le point d'entrée, qui prépare la machine à états) | `LireRemiseAsync`, marquée `; async` dans l'assembleur |
-| `AsyncTaskMethodBuilder<Decimal>.Start<…>` | |
-| `AsyncMethodBuilderCore.Start<…>` | |
-| `<LireRemiseAsync>d__9.MoveNext()` (le vrai code) | |
-
-Autre détail parlant : en Runtime Async, le JIT voit la méthode comme renvoyant **directement un `Decimal`**, et
-non un `Task<Decimal>`. Le `Task` n'est créé que si quelqu'un en a vraiment besoin.
-
-Pour lire l'IL d'une DLL compilée en local, [ILSpy](https://github.com/icsharpcode/ILSpy) (application ou extension
-Visual Studio/VS Code) affiche aussi le C# décompilé et l'IL côte à côte.
+  Pour `LireRemiseAsync`, on voit 4 méthodes compilées en mode classique (point d'entrée, 2 méthodes de démarrage,
+  `MoveNext`) contre 1 seule en Runtime Async.
 
 ---
 
