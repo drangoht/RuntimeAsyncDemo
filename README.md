@@ -48,6 +48,9 @@ public async Task<Commande> ChargerAsync(int id)
 Pour reprendre une méthode au milieu, il faut **sauvegarder où on en était** : la ligne, les variables locales, la
 méthode appelante à prévenir… C'est cette mécanique que .NET 11 change.
 
+> 📚 Pas à l'aise avec la notion de « pile » (*stack*), de cadre ou de *stack trace* ? La note
+> [PILE.md](PILE.md) l'explique avec des schémas simples, jusqu'au lien avec l'async.
+
 ---
 
 ## 2. Comment ça marchait jusqu'ici : la machine à états
@@ -355,6 +358,7 @@ RuntimeAsyncDemo/
 ├── Directory.Build.props        Interrupteur AsyncMode (runtime | compiler) + obj/bin séparés par mode
 ├── global.json                  SDK .NET 11 RC3
 ├── comparer.ps1                 Lance la démo dans les deux modes
+├── PILE.md                      La pile d'appels expliquée simplement (cadres, pile/tas, lien avec l'async)
 └── src/
     ├── RuntimeAsyncDemo.Scenarios/    Le code mesuré (compilé dans chaque mode)
     │   ├── ServiceCommandes.cs        Service métier : cache, calcul de prix, enregistrement
