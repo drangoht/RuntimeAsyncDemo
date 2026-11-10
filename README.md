@@ -384,16 +384,16 @@ struct <LireRemiseAsync>d__9
       if (etat == 0) goto Reprise;
       if (_simulerEntreesSorties)
       {
-        attente = Task.Yield().GetAwaiter();
-        if (!attente.IsCompleted)
+        att = Task.Yield().GetAwaiter();
+        if (!att.IsCompleted)
         {
           etat = 0;
           builder.AwaitUnsafeOnCompleted(
-            ref attente, ref this);
+            ref att, ref this);
           return;        // suspendue
         }
       Reprise:
-        attente.GetResult();
+        att.GetResult();
       }
       builder.SetResult(client.Remise);
     }
@@ -466,8 +466,8 @@ void MoveNext()
   try
   {
     if (etat == 0) goto Reprise;
-    if (profondeur == 0)
-      throw new CommandeInvalideException(…);
+    if (profondeur == 0) throw
+      new CommandeInvalideException(…);
     attente = DescendreEtEchouerAsync(
       profondeur - 1).GetAwaiter();
     if (!attente.IsCompleted)
@@ -496,8 +496,8 @@ void MoveNext()
 ```csharp
 Task<int> DescendreEtEchouerAsync(int p)
 {
-  if (p == 0)
-    throw new CommandeInvalideException(…);
+  if (p == 0) throw
+    new CommandeInvalideException(…);
 
   return AsyncHelpers.Await(
     DescendreEtEchouerAsync(p - 1)) + 1;
