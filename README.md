@@ -361,47 +361,47 @@ Ce que le compilateur produit :
 <tr><td valign="top">
 
 ```csharp
-// ① La méthode ne fait plus que préparer
-//   la machine à états, puis la lancer
-Task<decimal> LireRemiseAsync(Client client)
+// ① La méthode ne fait plus que
+//   préparer la machine à états
+Task<decimal> LireRemiseAsync(Client c)
 {
-    var m = new <LireRemiseAsync>d__9();
-    m.client = client;
-    m.etat = -1;
-    m.builder = Builder<decimal>.Create();
-    m.builder.Start(ref m); // → MoveNext()
-    return m.builder.Task;
+  var m = new <LireRemiseAsync>d__9();
+  m.client = c;
+  m.etat = -1;
+  m.builder = Builder<decimal>.Create();
+  m.builder.Start(ref m); // → MoveNext
+  return m.builder.Task;
 }
 
-// ② Votre code est déplacé ici, découpé
-//   autour de l'await
+// ② Votre code est déplacé ici,
+//   découpé autour de l'await
 struct <LireRemiseAsync>d__9
 {
-    void MoveNext()
+  void MoveNext()
+  {
+    try
     {
-        try
+      if (etat == 0) goto Reprise;
+      if (_simulerEntreesSorties)
+      {
+        attente = Task.Yield().GetAwaiter();
+        if (!attente.IsCompleted)
         {
-            if (etat == 0) goto Reprise;
-            if (_simulerEntreesSorties)
-            {
-                attente = Task.Yield().GetAwaiter();
-                if (!attente.IsCompleted)
-                {
-                    etat = 0;
-                    builder.AwaitUnsafeOnCompleted(
-                        ref attente, ref this);
-                    return;      // suspendue
-                }
-            Reprise:
-                attente.GetResult();
-            }
-            builder.SetResult(client.Remise);
+          etat = 0;
+          builder.AwaitUnsafeOnCompleted(
+            ref attente, ref this);
+          return;        // suspendue
         }
-        catch (Exception e)
-        {
-            builder.SetException(e);
-        }
+      Reprise:
+        attente.GetResult();
+      }
+      builder.SetResult(client.Remise);
     }
+    catch (Exception e)
+    {
+      builder.SetException(e);
+    }
+  }
 }
 ```
 
@@ -410,20 +410,21 @@ struct <LireRemiseAsync>d__9
 ```csharp
 // Une seule méthode, marquée « async »
 // dans l'IL (drapeau 0x2000)
-Task<decimal> LireRemiseAsync(Client client)
+Task<decimal> LireRemiseAsync(Client c)
 {
-    if (_simulerEntreesSorties)
-    {
-        var attente = Task.Yield().GetAwaiter();
-        if (!attente.IsCompleted)
-            AsyncHelpers.UnsafeAwaitAwaiter(attente);
-            // ↑ le runtime suspend et reprend ICI
-        attente.GetResult();
-    }
-    return client.Remise;
-    // ↑ la valeur est renvoyée directement :
-    //   pas de SetResult, pas de Task créé
-    //   si l'appelant est lui aussi async
+  if (_simulerEntreesSorties)
+  {
+    var att = Task.Yield().GetAwaiter();
+    if (!att.IsCompleted)
+      AsyncHelpers.UnsafeAwaitAwaiter(att);
+      // ↑ le runtime suspend et
+      //   reprend ICI
+    att.GetResult();
+  }
+  return c.Remise;
+  // ↑ valeur renvoyée directement :
+  //   pas de SetResult, et pas de Task
+  //   si l'appelant est lui aussi async
 }
 ```
 
@@ -462,43 +463,44 @@ Ce que le compilateur produit (la partie « préparation » du mode classique es
 ```csharp
 void MoveNext()
 {
-    try
+  try
+  {
+    if (etat == 0) goto Reprise;
+    if (profondeur == 0)
+      throw new CommandeInvalideException(…);
+    attente = DescendreEtEchouerAsync(
+      profondeur - 1).GetAwaiter();
+    if (!attente.IsCompleted)
     {
-        if (etat == 0) goto Reprise;
-        if (profondeur == 0)
-            throw new CommandeInvalideException(…);
-        attente = DescendreEtEchouerAsync(
-            profondeur - 1).GetAwaiter();
-        if (!attente.IsCompleted)
-        {
-            etat = 0;
-            builder.AwaitUnsafeOnCompleted(…);
-            return;
-        }
-    Reprise:
-        // GetResult RELANCE l'exception
-        // rangée par le niveau du dessous
-        builder.SetResult(attente.GetResult() + 1);
+      etat = 0;
+      builder.AwaitUnsafeOnCompleted(…);
+      return;
     }
-    catch (Exception e)
-    {
-        // …et on la RANGE dans le Task
-        // de ce niveau
-        builder.SetException(e);
-    }
+  Reprise:
+    // GetResult RELANCE l'exception
+    // rangée par le niveau du dessous
+    builder.SetResult(
+      attente.GetResult() + 1);
+  }
+  catch (Exception e)
+  {
+    // …et on la RANGE dans le Task
+    // de ce niveau
+    builder.SetException(e);
+  }
 }
 ```
 
 </td><td valign="top">
 
 ```csharp
-Task<int> DescendreEtEchouerAsync(int profondeur)
+Task<int> DescendreEtEchouerAsync(int p)
 {
-    if (profondeur == 0)
-        throw new CommandeInvalideException(…);
+  if (p == 0)
+    throw new CommandeInvalideException(…);
 
-    return AsyncHelpers.Await(
-        DescendreEtEchouerAsync(profondeur - 1)) + 1;
+  return AsyncHelpers.Await(
+    DescendreEtEchouerAsync(p - 1)) + 1;
 }
 
 // Aucun try/catch généré :
