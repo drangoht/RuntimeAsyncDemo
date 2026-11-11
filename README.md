@@ -7,8 +7,8 @@ Le **même code C#** est compilé de deux façons, puis comparé :
 | **Classique** (avant .NET 11) | `-p:AsyncMode=compiler` | Le compilateur transforme chaque méthode `async` en *machine à états* |
 | **Runtime Async** (.NET 11) | `-p:AsyncMode=runtime` (par défaut ici) | La méthode reste une méthode normale marquée « async », gérée par le runtime |
 
-Testé avec le SDK `11.0.100-rc.3`. Le `global.json` accepte aussi la version finale de .NET 11, sortie le 10 novembre
-2026, dans laquelle Runtime Async **reste en preview et doit toujours être activé explicitement**.
+Testé avec le SDK `11.0.100`, la version finale de .NET 11 sortie le 10 novembre 2026, épinglé dans `global.json`.
+Runtime Async y **reste en preview et doit toujours être activé explicitement**.
 
 > 🎤 Vous présentez ce sujet ? [DEMO.md](DEMO.md) contient un déroulé de démo en direct d'environ 30 minutes, sans
 > slides : commandes, résultats attendus, quoi dire, questions probables et un point sur la .NET Conf 2026.
@@ -251,7 +251,7 @@ flowchart LR
 ```
 
 Avant, l'exception est attrapée puis relancée **à chaque niveau**. Après, elle remonte une seule fois, comme dans du
-code synchrone. C'est pour ça qu'une exception sur 20 niveaux passe de 27 µs à 6 µs.
+code synchrone. C'est pour ça qu'une exception sur 20 niveaux passe de 32 µs à 7 µs.
 
 ### Activer Runtime Async
 
@@ -262,9 +262,10 @@ code synchrone. C'est pour ça qu'une exception sur 20 niveaux passe de 27 µs �
 </PropertyGroup>
 ```
 
-> ⚠️ Vérifié sur le SDK RC3 : **sans ce réglage, votre code est toujours compilé avec la machine à états.**
-> Les bibliothèques de .NET 11 elles-mêmes sont déjà compilées en Runtime Async. La documentation Microsoft classe
-> encore la fonctionnalité en *preview* pour le code utilisateur.
+> ⚠️ Vérifié sur la version finale (SDK 11.0.100) : **sans ce réglage, votre code est toujours compilé avec la
+> machine à états.** Les bibliothèques de .NET 11 elles-mêmes sont déjà compilées en Runtime Async. L'annonce
+> officielle de .NET 11 précise que *« Runtime Async remains a preview feature »* et que `EnablePreviewFeatures`
+> n'est pas nécessaire.
 >
 > Piège rencontré : changer `Features` ne déclenche pas de recompilation incrémentale. Après un changement,
 > faites un `dotnet build --no-incremental`. Cette solution évite le problème avec un dossier `artifacts\<mode>\` par mode.
@@ -280,33 +281,36 @@ bool runtimeAsync = ((int)m.MethodImplementationFlags & 0x2000) != 0;   // true 
 
 ## 4. Résultats mesurés
 
-BenchmarkDotNet 0.16.0-preview.2, .NET 11.0.0-rc.3, AMD Ryzen 7 9800X3D, Windows 11, mesuré le 2026-11-09.
-Même code, même runtime : seule la compilation des méthodes `async` change.
+BenchmarkDotNet 0.16.0-preview.2, SDK .NET 11.0.100 / runtime 11.0.0 (version finale), AMD Ryzen 7 9800X3D,
+Windows 11, mesuré le 2026-11-11. Même code, même runtime : seule la compilation des méthodes `async` change.
+
+> Les valeurs absolues varient de 10 à 20 % d'un lancement à l'autre selon la charge de la machine. Les **ratios**
+> entre les deux modes, eux, sont stables : une première série sur la RC3 donnait les mêmes à ±0,3 près.
 
 ### Service métier : 1 000 commandes (4 niveaux d'async par commande)
 
 | Scénario | Classique | Runtime Async | Gain |
 |---|---:|---:|---|
-| Tout en cache (aucune vraie attente) | 48,0 µs · 312 Ko alloués | **26,5 µs · 0 octet** | **1,8× plus rapide, zéro allocation** |
-| Avec vraies attentes (3 suspensions par commande) | 742 µs · 607 Ko | **442 µs · 384 Ko** | **1,7× plus rapide, −37 % de mémoire** |
+| Tout en cache (aucune vraie attente) | 60,1 µs · 312 Ko alloués | **30,0 µs · 0 octet** | **2× plus rapide, zéro allocation** |
+| Avec vraies attentes (3 suspensions par commande) | 955 µs · 608 Ko | **659 µs · 384 Ko** | **1,45× plus rapide, −37 % de mémoire** |
 
 ### Chaîne d'appels de profondeur N (contrôleur → service → dépôt → …)
 
 | Profondeur | Sans attente : classique → runtime | Attente tout en bas : classique → runtime |
 |---:|---|---|
-| 1 | 18 ns · 144 o → **7 ns · 0 o** (×2,5) | 299 ns · 223 o → **215 ns · 192 o** (×1,4) |
-| 5 | 48 ns · 432 o → **18 ns · 0 o** (×2,7) | 501 ns · 660 o → **276 ns · 448 o** (×1,8) |
-| 20 | 238 ns · 1 512 o → **57 ns · 0 o** (×4,1) | 1 190 ns · 2 301 o → **604 ns · 1 408 o** (×2,0) |
+| 1 | 18,5 ns · 144 o → **7,2 ns · 0 o** (×2,6) | 293 ns · 223 o → **234 ns · 192 o** (×1,25) |
+| 5 | 55 ns · 432 o → **24 ns · 0 o** (×2,3) | 566 ns · 662 o → **338 ns · 448 o** (×1,7) |
+| 20 | 253 ns · 1 512 o → **58 ns · 0 o** (×4,4) | 1 278 ns · 2 300 o → **645 ns · 1 408 o** (×2,0) |
 
 ### Exception métier qui remonte N niveaux
 
 | Profondeur | Classique | Runtime Async | Gain |
 |---:|---:|---:|---|
-| 1 | 3,49 µs · 1 640 o | **1,37 µs · 464 o** | ×2,6 |
-| 5 | 8,24 µs · 6 488 o | **2,43 µs · 760 o** | ×3,4 |
-| 20 | 27,06 µs · 39 576 o | **6,20 µs · 2 376 o** | **×4,4 et 17× moins de mémoire** |
+| 1 | 3,84 µs · 1 640 o | **1,57 µs · 464 o** | ×2,4 |
+| 5 | 9,94 µs · 6 488 o | **3,20 µs · 760 o** | ×3,1 |
+| 20 | 32,14 µs · 39 576 o | **7,32 µs · 2 376 o** | **×4,4 et 17× moins de mémoire** |
 
-### Pile d'appels vivante (démo `RuntimeAsyncDemo.Demo`, section 1 bis)
+### Pile d'appels vivante (démo `RuntimeAsyncDemo.Demo`, étape `pile`)
 
 Vue depuis la méthode la plus basse, après une attente :
 
@@ -343,7 +347,7 @@ depuis .NET Core 2.1. Le gain se voit dans le débogueur, les profileurs et les 
 ## 5. Ce que le compilateur fait de votre code, côte à côte
 
 Pour deux méthodes de la solution, voici ce qui se retrouve **réellement dans la DLL** dans chaque mode, réécrit en
-C# lisible. Les appels ont été relevés dans l'IL des deux builds (SDK RC3). Les noms sont raccourcis et c'est du
+C# lisible. Les appels ont été relevés dans l'IL des deux builds (SDK 11.0.100), avec `outils/voir-il.cs`. Les noms sont raccourcis et c'est du
 pseudo-C# : le vrai code généré utilise des sauts (`goto`) qu'on ne peut pas écrire tels quels.
 
 ### Exemple 1 : une attente (`LireRemiseAsync`, dans `ServiceCommandes.cs`)
@@ -527,7 +531,7 @@ Elle remonte directement jusqu'au `catch`.
 </table>
 
 C'est ce qui explique les benchmarks de la section 4 : sur 20 niveaux, le mode classique attrape et relance
-l'exception 20 fois (27 µs), contre une seule remontée en Runtime Async (6 µs).
+l'exception 20 fois (32 µs), contre une seule remontée en Runtime Async (7 µs).
 
 ### Pour aller plus loin
 
@@ -569,7 +573,7 @@ dotnet run -c Release --project src/RuntimeAsyncDemo.Benchmarks -- --filter *Exc
 ```
 RuntimeAsyncDemo/
 ├── Directory.Build.props        Interrupteur AsyncMode (runtime | compiler) + obj/bin séparés par mode
-├── global.json                  SDK .NET 11 RC3
+├── global.json                  SDK .NET 11 (11.0.100, version finale)
 ├── comparer.ps1                 Lance la démo dans les deux modes
 ├── PILE.md                      La pile d'appels expliquée simplement (cadres, pile/tas, lien avec l'async)
 ├── DEMO.md                      Déroulé de présentation en direct (tech radar, .NET Conf 2026)

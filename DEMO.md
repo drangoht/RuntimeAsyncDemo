@@ -20,8 +20,9 @@ Une présentation **sans slides** d'environ 30 minutes, construite autour de dé
 
 ## 0. Préparation (la veille)
 
-1. **SDK** : installer le SDK .NET 11 (version finale 11.0.100, sortie le 10 novembre 2026). Le `global.json` du dépôt
-   accepte la RC3 et toute version plus récente. Dans le dossier du dépôt, vérifier :
+1. **SDK** : installer le SDK .NET 11 (version finale 11.0.100, sortie le 10 novembre 2026), par exemple avec
+   `winget install Microsoft.DotNet.SDK.11`. Le `global.json` du dépôt demande 11.0.100 ou plus récent. Dans le
+   dossier du dépôt, vérifier :
    ```powershell
    dotnet --version        # doit afficher 11.0.1xx
    ```
@@ -37,7 +38,7 @@ Une présentation **sans slides** d'environ 30 minutes, construite autour de dé
    ```powershell
    dotnet run -c Release --project src/RuntimeAsyncDemo.Benchmarks -- --filter *
    ```
-   Les rapports sont dans `BenchmarkDotNet.Artifacts/results/`. Ceux du README ont été mesurés sur la RC3.
+   Les rapports sont dans `BenchmarkDotNet.Artifacts/results/`. Ceux du README ont été mesurés sur la version finale (11.0.0).
 4. **Écran** : terminal en police 18 pt minimum, deux terminaux côte à côte (gauche = classique, droite = Runtime
    Async), le README ouvert sur GitHub dans un onglet, `ServiceCommandes.cs` ouvert dans l'éditeur.
 
@@ -200,10 +201,10 @@ Ordre de grandeur attendu (Ryzen 7 9800X3D) :
 
 | Scénario | Classique | Runtime Async |
 |---|---|---|
-| Service commandes, tout en cache | ~290 ns · 312 o | **~125 ns · 80 o** |
-| Service commandes, vraies attentes | ~2,2 µs · 607 o | **~1,5 µs · 536 o** |
+| Service commandes, tout en cache | ~300 ns · 312 o | **~125 ns · 80 o** |
+| Service commandes, vraies attentes | ~2,4 µs · 607 o | **~1,5 µs · 536 o** |
 | Chaîne de 10 appels, sans attente | ~500 ns · 791 o | **~180 ns · 72 o** |
-| Exception sur 10 niveaux | ~21 µs · 17 Ko | **~5 µs · 1,3 Ko** |
+| Exception sur 10 niveaux | ~20 µs · 16 Ko | **~5 µs · 1,3 Ko** |
 
 > Ces mesures « maison » au chronomètre servent à **illustrer**, pas à prouver. Les quelques octets restants
 > en Runtime Async viennent de la boucle de mesure elle-même. Les chiffres rigoureux viennent de BenchmarkDotNet,
@@ -224,10 +225,10 @@ même code source et le même runtime : seule la compilation des méthodes async
 Ouvrez la **section 4 du README** sur GitHub, ou les rapports de la veille. Les trois messages à faire passer :
 
 1. **Le plus gros gain concerne le cas le plus courant** : des appels async qui se terminent tout de suite (cache,
-   données en mémoire, tampon). On passe de 312 Ko à **0 octet** pour 1 000 commandes, et c'est **1,8× plus rapide**.
+   données en mémoire, tampon). On passe de 312 Ko à **0 octet** pour 1 000 commandes, et c'est **2× plus rapide**.
 2. **Plus la chaîne est profonde, plus on gagne** : jusqu'à ×4 sur 20 niveaux. Nos architectures en couches
    (contrôleur → service → dépôt → client HTTP, plus les décorateurs de cache, retry et logs) sont exactement ce cas.
-3. **Les exceptions** remontent de **2,6 à 4,4 fois plus vite**, avec jusqu'à 17 fois moins de mémoire.
+3. **Les exceptions** remontent de **2,4 à 4,4 fois plus vite**, avec jusqu'à 17 fois moins de mémoire.
 
 **Le garde-fou à rappeler** : ce sont des gains sur la **mécanique async**, pas sur l'attente. Une requête SQL de
 2 ms reste une requête de 2 ms. Le gain se voit sur un service qui traite beaucoup de requêtes : moins de CPU, moins
