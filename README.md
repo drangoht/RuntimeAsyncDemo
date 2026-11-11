@@ -7,7 +7,11 @@ Le **même code C#** est compilé de deux façons, puis comparé :
 | **Classique** (avant .NET 11) | `-p:AsyncMode=compiler` | Le compilateur transforme chaque méthode `async` en *machine à états* |
 | **Runtime Async** (.NET 11) | `-p:AsyncMode=runtime` (par défaut ici) | La méthode reste une méthode normale marquée « async », gérée par le runtime |
 
-Testé avec le SDK `11.0.100-rc.3` (épinglé dans `global.json`).
+Testé avec le SDK `11.0.100-rc.3`. Le `global.json` accepte aussi la version finale de .NET 11, sortie le 10 novembre
+2026, dans laquelle Runtime Async **reste en preview et doit toujours être activé explicitement**.
+
+> 🎤 Vous présentez ce sujet ? [DEMO.md](DEMO.md) contient un déroulé de démo en direct d'environ 30 minutes, sans
+> slides : commandes, résultats attendus, quoi dire, questions probables et un point sur la .NET Conf 2026.
 
 ---
 
@@ -546,9 +550,14 @@ l'exception 20 fois (27 µs), contre une seule remontée en Runtime Async (6 µs
 # Démo rapide (~30 s) : pile d'appels + mesures simples, dans les deux modes
 ./comparer.ps1
 
-# Un seul mode
+# Un seul mode, et éventuellement une seule étape : mode | pile | exception | mesures | tout
 dotnet run -c Release --project src/RuntimeAsyncDemo.Demo -p:AsyncMode=compiler
-dotnet run -c Release --project src/RuntimeAsyncDemo.Demo -p:AsyncMode=runtime
+dotnet run -c Release --project src/RuntimeAsyncDemo.Demo -p:AsyncMode=runtime -- pile
+
+# Ce que le compilateur a produit pour une méthode, dans les deux modes (application en un fichier)
+dotnet build -c Release src/RuntimeAsyncDemo.Scenarios -p:AsyncMode=compiler
+dotnet build -c Release src/RuntimeAsyncDemo.Scenarios -p:AsyncMode=runtime
+dotnet run outils/voir-il.cs -- LireRemiseAsync
 
 # Benchmarks rigoureux (BenchmarkDotNet, 15-20 min) : le projet est recompilé dans chaque mode
 dotnet run -c Release --project src/RuntimeAsyncDemo.Benchmarks -- --filter *
@@ -563,11 +572,13 @@ RuntimeAsyncDemo/
 ├── global.json                  SDK .NET 11 RC3
 ├── comparer.ps1                 Lance la démo dans les deux modes
 ├── PILE.md                      La pile d'appels expliquée simplement (cadres, pile/tas, lien avec l'async)
+├── DEMO.md                      Déroulé de présentation en direct (tech radar, .NET Conf 2026)
+├── outils/voir-il.cs            Affiche ce que le compilateur a généré pour une méthode, dans les deux modes
 └── src/
     ├── RuntimeAsyncDemo.Scenarios/    Le code mesuré (compilé dans chaque mode)
     │   ├── ServiceCommandes.cs        Service métier : cache, calcul de prix, enregistrement
     │   ├── ChaineAppels.cs            Chaînes d'appels de profondeur variable, exceptions, pile vivante
     │   └── ModeAsync.cs               Détecte le mode réellement compilé (drapeau IL 0x2000)
-    ├── RuntimeAsyncDemo.Demo/         Démo rapide en console
+    ├── RuntimeAsyncDemo.Demo/         Démo en console, lançable étape par étape
     └── RuntimeAsyncDemo.Benchmarks/   BenchmarkDotNet 0.16 preview (la 0.15.8 ne reconnaît pas .NET 11)
 ```
