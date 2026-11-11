@@ -27,9 +27,15 @@ FINAL = SORTIE / "RuntimeAsyncDemo.mp4"
 # Ce que la voix doit prononcer autrement que ce qui est écrit (les sous-titres gardent le texte d'origine).
 PRONONCIATION = [
     (".NET Conf", "dot net conf"), (".NET Core", "dot net core"), ("ASP.NET Core", "A S P dot net core"),
-    (".NET", "dot net"), ("C#", "C sharp"), ("OpenAPI", "Open A P I"), ("CoreCLR", "Core C L R"),
+    ("BenchmarkDotNet", "Bèntch-mark dot net"), ("benchmarks", "bèntch-marks"),
+    (".NET", "dot net"), ("C#", "si charp"), ("OpenAPI", "Opeune A P I"), ("CoreCLR", "Core C L R"),
+    ("ValueTask", "Valiou task"), ("MoveNext", "Mouv next"), ("SetResult", "Sète rizeulte"),
+    ("SetException", "Sète ixèpcheune"), ("Create", "Cri-éïte"), ("try catch", "traï catch"),
+    ("preview", "priviou"), ("GitHub", "Guite-heub"), ("dumps", "deumps"), ("threads", "srèd"), ("thread", "srèd"),
     ("MAUI", "Maui"), ("STS", "S T S"), ("LTS", "L T S"), ("DLL", "D L L"), ("SQL", "S Q L"),
-    ("try catch", "try catch"), ("Directory.Build.props", "Directory Build props"),
+    ("RuntimeAsyncDemo", "Reune-taïme assinnk démo"),
+    ("Runtime", "Reune-taïme"), ("runtime", "reune-taïme"), ("Directory.Build.props", "Dirèktori Bild props"),
+    ("Async", "Assinnk"), ("async", "assinnk"), ("await", "euwéïte"),
 ]
 
 
@@ -84,7 +90,8 @@ def rendre_images(plans):
 
 def a_prononcer(texte):
     for ecrit, dit in PRONONCIATION:
-        texte = texte.replace(ecrit, dit)
+        # mot entier seulement : « async » ne doit pas toucher « asynchrone »
+        texte = re.sub(rf"(?<!\w){re.escape(ecrit)}(?!\w)", lambda _: dit, texte)
     return texte
 
 
