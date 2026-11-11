@@ -52,26 +52,48 @@ Une présentation **sans slides** d'environ 30 minutes, construite autour de dé
 
 ## 1. Accroche : une question (2 min)
 
-Montrez `LireRemiseAsync` dans `src/RuntimeAsyncDemo.Scenarios/ServiceCommandes.cs` :
+Montrez ce code, que tout le monde a déjà écrit sous une forme ou une autre :
 
 ```csharp
-private async Task<decimal> LireRemiseAsync(Client client)
+async Task<decimal> LireRemiseAsync(int idClient)
 {
-    if (_simulerEntreesSorties) await Task.Yield();
-    return client.Remise;
+    if (_cache.TryGetValue(idClient, out decimal remise))
+        return remise;                               // ① trouvée en mémoire : aucun await n'est exécuté
+
+    return await _baseDeDonnees.LireRemiseAsync(idClient);   // ② sinon : vraie attente
 }
 ```
 
-**Question au public** : *« Quand la remise est en cache, donc sans aucune attente, combien d'objets cette méthode
-alloue-t-elle ? »*
+**À dire d'abord** : *« Prenons le cas ①, le plus fréquent : la remise est déjà dans le cache. La méthode lit une
+valeur en mémoire et la renvoie. Elle ne touche pas à la base et n'exécute aucun `await`. »*
 
-Laissez répondre. La plupart diront « zéro », et ce n'est pas vrai :
+**Puis la question, avec un vote à main levée** :
 
-- **En .NET 10**, un `Task<decimal>` est alloué à chaque appel. Sur un traitement de 1 000 commandes avec 4 niveaux
-  d'async chacune, cela fait **312 Ko** de mémoire à nettoyer.
-- **Avec Runtime Async en .NET 11**, on alloue **0 octet**, sans changer une ligne de code.
+> *« Dans ce cas ①, un appel à cette méthode crée-t-il des objets en mémoire, c'est-à-dire des allocations que le
+> ramasse-miettes devra nettoyer ? »*
+> **A.** Aucun · **B.** Un · **C.** Plusieurs
 
-**À dire** : *« Aujourd'hui, on va voir pourquoi, le mesurer en direct, et décider si ça mérite une place sur notre radar. »*
+La plupart votent A : on ne fait que renvoyer un nombre. **La bonne réponse est B en .NET 10** :
+
+- **Pourquoi un objet ?** La signature promet un `Task<decimal>`, pas un `decimal`. Même si le résultat est déjà là,
+  il faut un objet `Task` pour le transporter jusqu'à l'appelant. Il est créé à chaque appel. .NET réutilise des
+  `Task` déjà prêts pour quelques valeurs très courantes, comme `true`, `false` ou les petits entiers, mais pas pour
+  une remise quelconque.
+- **À l'échelle d'un service** : dans la démo, traiter 1 000 commandes enchaîne plusieurs méthodes async imbriquées
+  par commande. Cela fait **312 Ko** d'objets `Task` créés pour rien, uniquement pour transporter des résultats déjà
+  connus.
+- **Avec Runtime Async en .NET 11, la réponse devient A : 0 octet**, sans changer une ligne de code. Quand l'appelant
+  est lui aussi une méthode async, le résultat lui est passé directement, comme pour une méthode normale.
+
+> Pour les plus expérimentés, qui penseront à `ValueTask` : oui, `ValueTask<decimal>` évite déjà cette allocation,
+> mais il faut changer la signature de chaque méthode et de ses appelants, et respecter ses règles d'usage.
+> Runtime Async obtient le même effet sans rien changer.
+
+**À dire** : *« Aujourd'hui, on va voir pourquoi, le mesurer en direct, et décider si ça mérite une place sur notre
+radar. »*
+
+*Dans la solution, ce cas est simulé par `ServiceCommandes` avec `simulerEntreesSorties: false` : aucun `await` n'est
+exécuté, exactement comme le cas ①.*
 
 ---
 
