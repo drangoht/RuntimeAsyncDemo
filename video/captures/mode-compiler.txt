@@ -1,0 +1,3 @@
+Mode de compilation : Classique (le compilateur génère une machine à états)
+Classes « machine à états » générées : 16
+

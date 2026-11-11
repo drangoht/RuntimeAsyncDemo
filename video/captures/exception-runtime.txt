@@ -1,0 +1,11 @@
+Mode de compilation : Runtime Async (.NET 11 : le runtime gère l'async)
+Classes « machine à états » générées : 0
+
+── Pile d'appels d'une exception (Contrôleur → Service → Dépôt → BaseDeDonnées) ──
+   at RuntimeAsyncDemo.Scenarios.ChaineAppels.BaseDeDonneesAsync()
+   at RuntimeAsyncDemo.Scenarios.ChaineAppels.DepotAsync()
+   at RuntimeAsyncDemo.Scenarios.ChaineAppels.ServiceAsync()
+   at RuntimeAsyncDemo.Scenarios.ChaineAppels.ControleurAsync()
+   at Program.<<Main>$>g__AfficherPileException|0_1()
+   => 5 lignes (.NET nettoie déjà ces piles depuis .NET Core 2.1 : pas de différence ici)
+

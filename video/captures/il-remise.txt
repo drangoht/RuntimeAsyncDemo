@@ -1,0 +1,27 @@
+══════════ MODE CLASSIQUE (machine à états) ══════════
+   ServiceCommandes.LireRemiseAsync   (63 octets d'IL)
+      appelle AsyncTaskMethodBuilder.Create   ← plomberie de la machine à états
+      appelle AsyncTaskMethodBuilder.Start   ← plomberie de la machine à états
+      appelle AsyncTaskMethodBuilder.get_Task   ← plomberie de la machine à états
+   <LireRemiseAsync>d__9.MoveNext   (176 octets d'IL)
+      appelle Task.Yield
+      appelle YieldAwaitable.GetAwaiter
+      appelle YieldAwaiter.get_IsCompleted
+      appelle AsyncTaskMethodBuilder.AwaitUnsafeOnCompleted   ← plomberie de la machine à états
+      appelle YieldAwaiter.GetResult
+      appelle Client.get_Remise
+      appelle AsyncTaskMethodBuilder.SetException   ← plomberie de la machine à états
+      appelle AsyncTaskMethodBuilder.SetResult   ← plomberie de la machine à états
+      contient un try/catch généré par le compilateur   ← capture puis range l'exception
+   ► 2 méthode(s), 239 octets d'IL au total
+
+══════════ RUNTIME ASYNC (.NET 11) ══════════
+   ServiceCommandes.LireRemiseAsync   (51 octets d'IL, drapeau « async »)
+      appelle Task.Yield
+      appelle YieldAwaitable.GetAwaiter
+      appelle YieldAwaiter.get_IsCompleted
+      appelle AsyncHelpers.UnsafeAwaitAwaiter   ← le runtime gère l'attente ici
+      appelle YieldAwaiter.GetResult
+      appelle Client.get_Remise
+   ► 1 méthode(s), 51 octets d'IL au total
+

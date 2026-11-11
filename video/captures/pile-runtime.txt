@@ -1,0 +1,11 @@
+Mode de compilation : Runtime Async (.NET 11 : le runtime gère l'async)
+Classes « machine à états » générées : 0
+
+── Pile vivante, vue depuis BaseDeDonnées après une attente ──
+   at RuntimeAsyncDemo.Scenarios.ChaineAppels.BaseDeDonneesPileAsync()
+   at System.Threading.ThreadPoolWorkQueue.Dispatch()
+   at System.Threading.PortableThreadPool.WorkerThread.WorkerDoWork(PortableThreadPool threadPoolInstance)
+   at System.Threading.PortableThreadPool.WorkerThread.WorkerThreadStart()
+   at System.Threading.Thread.StartCallback(Thread* pThread)
+   => 5 cadres, dont 1 de notre code et 4 de plomberie .NET
+

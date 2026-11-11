@@ -1,0 +1,11 @@
+Mode de compilation : Classique (le compilateur génère une machine à états)
+Classes « machine à états » générées : 16
+
+── Mesures (moyenne par opération, après préchauffage) ──
+   Scénario                                                  Temps    Mémoire
+   Service commandes, tout en cache (1 commande)            299 ns     312 o
+   Service commandes, avec vraies attentes (1 commande)    2,22 µs     607 o
+   Chaîne de 10 appels, sans attente                        489 ns     791 o
+   Chaîne de 10 appels, attente tout en bas                2,12 µs    1224 o
+   Exception qui remonte 10 niveaux                       20,17 µs   15895 o
+

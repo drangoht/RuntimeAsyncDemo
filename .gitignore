@@ -5,3 +5,8 @@ obj/
 BenchmarkDotNet.Artifacts/
 .vs/
 *.user
+
+# Vidéo de la démo : environnement Python et fichiers produits
+video/.venv/
+video/sortie/
+video/__pycache__/

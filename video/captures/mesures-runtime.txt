@@ -1,0 +1,11 @@
+Mode de compilation : Runtime Async (.NET 11 : le runtime gère l'async)
+Classes « machine à états » générées : 0
+
+── Mesures (moyenne par opération, après préchauffage) ──
+   Scénario                                                  Temps    Mémoire
+   Service commandes, tout en cache (1 commande)            130 ns      80 o
+   Service commandes, avec vraies attentes (1 commande)    1,67 µs     536 o
+   Chaîne de 10 appels, sans attente                        188 ns      72 o
+   Chaîne de 10 appels, attente tout en bas                1,12 µs     920 o
+   Exception qui remonte 10 niveaux                        5,83 µs    1312 o
+

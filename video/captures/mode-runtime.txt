@@ -1,0 +1,3 @@
+Mode de compilation : Runtime Async (.NET 11 : le runtime gère l'async)
+Classes « machine à états » générées : 0
+

@@ -1,0 +1,26 @@
+══════════ MODE CLASSIQUE (machine à états) ══════════
+   ChaineAppels.DescendreEtEchouerAsync   (55 octets d'IL)
+      appelle AsyncTaskMethodBuilder.Create   ← plomberie de la machine à états
+      appelle AsyncTaskMethodBuilder.Start   ← plomberie de la machine à états
+      appelle AsyncTaskMethodBuilder.get_Task   ← plomberie de la machine à états
+   <DescendreEtEchouerAsync>d__2.MoveNext   (173 octets d'IL)
+      appelle CommandeInvalideException..ctor
+      lève une exception
+      appelle ChaineAppels.DescendreEtEchouerAsync
+      appelle Task.GetAwaiter
+      appelle TaskAwaiter.get_IsCompleted
+      appelle AsyncTaskMethodBuilder.AwaitUnsafeOnCompleted   ← plomberie de la machine à états
+      appelle TaskAwaiter.GetResult
+      appelle AsyncTaskMethodBuilder.SetException   ← plomberie de la machine à états
+      appelle AsyncTaskMethodBuilder.SetResult   ← plomberie de la machine à états
+      contient un try/catch généré par le compilateur   ← capture puis range l'exception
+   ► 2 méthode(s), 228 octets d'IL au total
+
+══════════ RUNTIME ASYNC (.NET 11) ══════════
+   ChaineAppels.DescendreEtEchouerAsync   (30 octets d'IL, drapeau « async »)
+      appelle CommandeInvalideException..ctor
+      lève une exception
+      appelle ChaineAppels.DescendreEtEchouerAsync
+      appelle AsyncHelpers.Await   ← le runtime gère l'attente ici
+   ► 1 méthode(s), 30 octets d'IL au total
+
