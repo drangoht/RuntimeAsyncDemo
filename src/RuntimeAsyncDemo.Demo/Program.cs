@@ -82,6 +82,14 @@ static async Task AfficherPileVivante()
 static async Task AfficherMesures()
 {
     Console.WriteLine("── Mesures (moyenne par opération, après préchauffage) ──");
+    if (Debugger.IsAttached)
+    {
+        // Sous débogueur, chaque exception lui est signalée (plusieurs millisecondes) : les 25 000 exceptions
+        // de la dernière mesure bloqueraient la démo de longues minutes. Les chiffres n'auraient de toute façon
+        // aucun sens : on réduit fortement le nombre d'itérations.
+        Console.WriteLine("   Débogueur attaché : itérations divisées par 1000, chiffres non significatifs.");
+        Console.WriteLine("   Pour de vraies mesures : dotnet run -c Release, sans débogueur.");
+    }
     Console.WriteLine($"   {"Scénario",-52} {"Temps",10} {"Mémoire",10}");
 
     await Mesurer("Service commandes, tout en cache (1 commande)", 200_000,
@@ -107,6 +115,7 @@ static async Task AfficherMesures()
 
 static async Task Mesurer<TEtat, TResultat>(string nom, int iterations, Func<TEtat> creer, Func<TEtat, int, Task<TResultat>> operation)
 {
+    if (Debugger.IsAttached) iterations = Math.Max(20, iterations / 1000);
     TEtat etat = creer();
     for (int i = 0; i < iterations / 4; i++) await operation(etat, i); // préchauffage : le JIT optimise
 
