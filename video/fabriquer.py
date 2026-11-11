@@ -19,7 +19,7 @@ import scenario
 ICI = Path(__file__).parent
 SORTIE = ICI / "sortie"
 EDGE = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
-VOIX = "fr-FR-VivienneMultilingualNeural"
+VOIX = "fr-FR-RemyMultilingualNeural"      # voix masculine, multilingue : mots anglais dits à l'anglaise
 DEBIT = "+0%"
 AVANT, APRES, FIN_SCENE = 0.35, 0.45, 0.5      # silences autour de chaque plan, en secondes
 FINAL = SORTIE / "RuntimeAsyncDemo.mp4"
@@ -28,7 +28,7 @@ FINAL = SORTIE / "RuntimeAsyncDemo.mp4"
 PRONONCIATION = [
     (".NET Conf", "dot net conf"), (".NET Core", "dot net core"), ("ASP.NET Core", "A S P dot net core"),
     (".NET", "dot net"), ("C#", "C sharp"), ("OpenAPI", "Open A P I"), ("CoreCLR", "Core C L R"),
-    ("MAUI", "Maoui"), ("STS", "S T S"), ("LTS", "L T S"), ("DLL", "D L L"), ("SQL", "S Q L"),
+    ("MAUI", "Maui"), ("STS", "S T S"), ("LTS", "L T S"), ("DLL", "D L L"), ("SQL", "S Q L"),
     ("try catch", "try catch"), ("Directory.Build.props", "Directory Build props"),
 ]
 
