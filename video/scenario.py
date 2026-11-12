@@ -32,8 +32,10 @@ def e(texte):
 
 
 _MOTS = ("async|await|return|if|else|private|public|static|struct|class|void|var|new|ref|out|try|catch|goto|"
-         "decimal|int|bool|string|this|throw")
-_JETON = re.compile(r"(//[^\n]*)|(\"[^\"\n]*\")|\b(%s)\b|\b(Task|ValueTask|Client|Exception|AsyncHelpers|Builder)\b"
+         "decimal|int|bool|string|this|throw|readonly|sealed|typeof")
+_JETON = re.compile(r"(//[^\n]*)|(/\*[^\n]*?\*/)|(\"[^\"\n]*\")|\b(%s)\b|"
+                    r"\b(Task|ValueTask|Client|Exception|AsyncHelpers|Builder|AsyncMethodBuilder|TaskAwaiter|MaTache|"
+                    r"MaTacheBuilder)\b"
                     % _MOTS)
 _XML = re.compile(r"(&lt;/?)([\w.]+)(&gt;)")
 
@@ -43,7 +45,7 @@ def cs(ligne):
     morceaux, pos = [], 0
     for m in _JETON.finditer(ligne):
         morceaux.append(e(ligne[pos:m.start()]))
-        classe = "com" if m.group(1) else "str" if m.group(2) else "mot" if m.group(3) else "typ"
+        classe = "com" if m.group(1) or m.group(2) else "str" if m.group(3) else "mot" if m.group(4) else "typ"
         morceaux.append(f'<span class="{classe}">{e(m.group(0))}</span>')
         pos = m.end()
     morceaux.append(e(ligne[pos:]))
@@ -521,6 +523,55 @@ scene(6, """<h2>Une ligne dans <span class="acc">Directory.Build.props</span>, z
     "Un piège pratique : changer cette option ne déclenche pas de recompilation incrémentale. Il faut forcer une "
     "recompilation complète. Et pour vérifier que c'est bien actif, on regarde le drapeau async sur la méthode, "
     "comme le fait notre outil.",
+])
+
+# 6 bis ─ Ce qui garde la machine à états (vérifié sur le SDK 11.0.100)
+TASK_LIKE = """
+// Type « task-like » : il désigne son builder
+[AsyncMethodBuilder(typeof(MaTacheBuilder))]
+public readonly struct MaTache(Task tache)
+{
+    public TaskAwaiter GetAwaiter()
+        => tache.GetAwaiter();
+}
+
+// Create, Start, SetResult, SetException…
+public sealed class MaTacheBuilder { /* … */ }
+
+// Machine à états générée, comme avant
+public async MaTache EnvoyerAsync()
+{
+    await Task.Yield();
+}
+"""
+scene(6, """<h2>Ce qui garde la <span class="cl">machine à états</span> du compilateur</h2>
+<div class="cols" style="grid-template-columns:1fr 1.22fr">
+  <div style="display:flex;flex-direction:column;gap:26px">
+    <div class="carte cl"><h3 class="cl">Même avec l'option activée</h3><ul>
+      <li><b>async void</b><br><span class="doux petit">gestionnaires d'événements</span></li>
+      <li><b>Itérateurs asynchrones</b><br><span class="doux petit">IAsyncEnumerable&lt;T&gt; avec await et yield return</span></li>
+      <li><b>Types task-like personnalisés</b><br><span class="doux petit">tout type désigné par [AsyncMethodBuilder] : UniTask (Unity)…</span></li>
+    </ul></div>
+    <div class="carte rt" data-s="2"><h3 class="rt">Passent bien en Runtime Async</h3><ul>
+      <li>Task, Task&lt;T&gt;, ValueTask, ValueTask&lt;T&gt;</li>
+      <li>Lambdas et fonctions locales async</li>
+      <li>Vérifié sur le SDK 11.0.100, drapeau 0x2000</li>
+    </ul></div>
+  </div>
+  <div data-s="1">""" + code(TASK_LIKE, "moyen-code", {2: 'data-f="1"', 13: 'data-f="1"'}) + """</div>
+</div>
+""", [
+    "Dernière limite : certaines méthodes async gardent la machine à états du compilateur, même avec l'option "
+    "activée. Les méthodes async void, qu'on trouve dans les gestionnaires d'événements. Les itérateurs asynchrones, "
+    "qui renvoient un IAsyncEnumerable avec await et yield return. Et les méthodes qui renvoient un type task-like "
+    "personnalisé.",
+    "Un type task-like, c'est un type qu'une méthode async peut renvoyer à la place de Task. Grâce à l'attribut "
+    "AsyncMethodBuilder, il désigne le builder que le compilateur doit appeler : Create, Start, SetResult, et ainsi de "
+    "suite. L'exemple le plus connu est UniTask, dans Unity. Pour ces types, le compilateur génère toujours la machine "
+    "à états.",
+    "Nous l'avons vérifié avec le SDK final : ces trois cas gardent leur machine à états, alors que Task, ValueTask, "
+    "les lambdas et les fonctions locales async passent bien en Runtime Async. Rien de bloquant : ces méthodes "
+    "fonctionnent comme avant, elles ne profitent simplement pas du gain.",
 ])
 
 # 7 ─ .NET Conf 2026

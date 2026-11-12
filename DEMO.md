@@ -285,6 +285,22 @@ Montrez `Directory.Build.props` :
   `dotnet build --no-incremental` après un changement. Ce dépôt sépare les dossiers `artifacts/<mode>/` pour éviter le problème.
 - **Comment vérifier que c'est bien actif** : le drapeau `0x2000` sur la méthode (voir `ModeAsync.cs`), ou
   `dotnet run outils/voir-il.cs`.
+- **Ce qui garde la machine à états du compilateur**, même avec l'option activée (vérifié sur le SDK 11.0.100) :
+  les méthodes `async void`, les itérateurs asynchrones (`IAsyncEnumerable<T>` avec `await` et `yield return`) et
+  les méthodes qui renvoient un type *task-like* personnalisé, c'est-à-dire un type désigné par
+  `[AsyncMethodBuilder]` (exemple courant : `UniTask` dans Unity). Le document de conception de Roslyn le dit :
+  seuls `Task`, `Task<T>`, `ValueTask` et `ValueTask<T>` passent en Runtime Async. Les lambdas et fonctions locales
+  async en profitent aussi. Rien de bloquant : ces méthodes fonctionnent comme avant, sans le gain.
+
+  ```csharp
+  [AsyncMethodBuilder(typeof(MaTacheBuilder))]       // désigne le builder appelé par le compilateur
+  public readonly struct MaTache(Task tache)
+  {
+      public TaskAwaiter GetAwaiter() => tache.GetAwaiter();
+  }
+
+  public async MaTache EnvoyerAsync() { await Task.Yield(); }   // => machine à états classique
+  ```
 
 ---
 

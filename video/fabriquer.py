@@ -35,6 +35,9 @@ PRONONCIATION = [
     ("MAUI", "Maui"), ("STS", "S T S"), ("LTS", "L T S"), ("DLL", "D L L"), ("SQL", "S Q L"),
     ("RuntimeAsyncDemo", "Reune-taïme assinnk démo"),
     ("Runtime", "Reune-taïme"), ("runtime", "reune-taïme"), ("Directory.Build.props", "Dirèktori Bild props"),
+    ("IAsyncEnumerable", "I-assinnk-iniou-meureubeul"), ("AsyncMethodBuilder", "Assinnk méthode bildeur"),
+    ("task-like", "task-laïke"), ("UniTask", "Iouni-task"), ("Unity", "Iouniti"), ("yield return", "yild ritourne"),
+    ("builder", "bildeur"), ("void", "voïde"),
     ("Async", "Assinnk"), ("async", "assinnk"), ("await", "euwéïte"),
 ]
 
